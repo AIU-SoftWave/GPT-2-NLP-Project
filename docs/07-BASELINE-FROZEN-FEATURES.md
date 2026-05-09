@@ -1,6 +1,26 @@
-# 07 — Baseline: Frozen Feature Extractor
+# 07 — Baseline: Frozen Feature Extractor (Beginner-Friendly)
 
-This is your first baseline. GPT-2 is **frozen** — only the classification head is trained.
+## What You'll Learn
+
+- How to train the frozen GPT-2 baseline (first experiment)
+- What the training loop actually does, step by step
+- What loss, optimizer, and accuracy mean in practice
+- Expected results and what they tell us
+
+---
+
+## Key Terms (Defined Simply)
+
+| Term | Simple definition | Analogy |
+|------|------------------|---------|
+| **Loss** | A number that measures how wrong the model's predictions are | The number of points you lose in a game — lower is better |
+| **Cross-entropy loss** | The standard loss for classification problems | Like a scoring system that penalizes confident wrong answers more |
+| **Optimizer** | The algorithm that decides how to update model parameters | A teacher who adjusts your answers — tells you which direction to move |
+| **Learning rate** | How big of a step the optimizer takes when updating parameters | The size of each step when walking downhill — too big and you overshoot, too small and it takes forever |
+| **Epoch** | One complete pass through ALL training examples | Reading your textbook cover to cover once |
+| **Batch** | A small group of examples processed at once | Studying 16 flashcards at a time instead of all 8,544 at once |
+| **Accuracy** | The percentage of predictions that are correct | Your score on a test — number right divided by total questions |
+| **Overfitting** | When the model memorizes the training data but fails on new data | Cramming for a test by memorizing the answers, then failing when a question is slightly different |
 
 ---
 
@@ -8,9 +28,12 @@ This is your first baseline. GPT-2 is **frozen** — only the classification hea
 
 ```
 Sentence → GPT-2 (frozen) → hidden states → last token → Dropout → Linear → logits
-                                                                    ↑
-                                                            Only this is trained
+                                                                   ↑
+                                                           Only this is trained
+                                                           (3,845 parameters)
 ```
+
+**Frozen** means GPT-2's 124 million parameters stay exactly as they are. Only the tiny classifier head (3,845 parameters) is trained.
 
 ---
 
@@ -34,14 +57,22 @@ import re
 from sklearn.model_selection import train_test_split
 ```
 
-### 2. Data Loading (from previous guide)
+These are all the tools we need. Let's go through them:
+- `torch` — PyTorch, the engine that runs everything
+- `AdamW` — The optimizer (decides how to update the model's weights)
+- `accuracy_score` — Calculates what percentage of predictions are correct
+- `tqdm` — Shows a progress bar during training
+
+---
+
+### 2. Data Loading
 
 ```python
 def load_sst_data():
     data = []
     for split in ['train', 'dev', 'test']:
         path = f"./Datasets/SST2Data/trainDevTestTrees_PTB/trees/{split}.txt"
-        trees = pytreebank.load_tree_file(path, format="custom")
+        trees = pytreebank.import_tree_corpus(path)
         for tree in trees:
             data.append({
                 'text': tree.to_lines()[0],
@@ -88,11 +119,7 @@ class SentimentDataset(Dataset):
             'attention_mask': encoding['attention_mask'].squeeze(0),
             'label': torch.tensor(self.labels[idx], dtype=torch.long)
         }
-```
 
-### 3. Model Definition
-
-```python
 class GPT2Classifier(nn.Module):
     def __init__(self, model_name="gpt2", num_classes=5, dropout=0.1, freeze=True):
         super().__init__()
@@ -120,26 +147,43 @@ class GPT2Classifier(nn.Module):
         return logits
 ```
 
-### 4. Training Function
+---
+
+### 3. Training Function (What the Loop Does)
+
+#### Understanding train_epoch
+
+Let's break down what happens every time we train for one epoch:
 
 ```python
 def train_epoch(model, dataloader, optimizer, criterion, device):
-    model.train()
+    model.train()  # Tell the model: "we're training now" (enables dropout, etc.)
     total_loss = 0
     all_preds = []
     all_labels = []
     
     for batch in tqdm(dataloader, desc="Training"):
+        # Step 1: Move data to GPU (if available)
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
         labels = batch['label'].to(device)
         
+        # Step 2: Clear old gradients
         optimizer.zero_grad()
+        
+        # Step 3: Forward pass — get predictions
         logits = model(input_ids, attention_mask)
+        
+        # Step 4: Calculate loss — how wrong are we?
         loss = criterion(logits, labels)
+        
+        # Step 5: Backward pass — calculate gradients
         loss.backward()
+        
+        # Step 6: Update weights — make the model slightly less wrong
         optimizer.step()
         
+        # Track metrics
         total_loss += loss.item()
         preds = torch.argmax(logits, dim=1)
         all_preds.extend(preds.cpu().numpy())
@@ -147,14 +191,32 @@ def train_epoch(model, dataloader, optimizer, criterion, device):
     
     accuracy = accuracy_score(all_labels, all_preds)
     return total_loss / len(dataloader), accuracy
+```
 
+**Step by step, in plain English:**
+
+1. **`.to(device)`** — Move data to the GPU. GPUs are specialized for the kind of math neural networks do.
+
+2. **`optimizer.zero_grad()`** — Clear the gradients from the previous batch. Imagine writing on a whiteboard — you erase before writing new information.
+
+3. **Forward pass** — Feed the input through the model to get predictions. This is the model "thinking" about the input.
+
+4. **Loss** — Compare predictions to the correct answers. The loss is a single number saying how wrong the model is. Cross-entropy loss is standard for classification.
+
+5. **Backward pass** — Calculate how each parameter contributed to the error. The model figures out: "If I adjust this knob slightly, will I be less wrong?"
+
+6. **Optimizer step** — Actually adjust the parameters. The optimizer takes the gradients and updates all the parameters.
+
+#### Understanding evaluate
+
+```python
 def evaluate(model, dataloader, criterion, device):
-    model.eval()
+    model.eval()  # Tell the model: "evaluation mode" (disables dropout)
     total_loss = 0
     all_preds = []
     all_labels = []
     
-    with torch.no_grad():
+    with torch.no_grad():  # Don't track gradients (saves memory)
         for batch in tqdm(dataloader, desc="Evaluating"):
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
@@ -172,10 +234,19 @@ def evaluate(model, dataloader, criterion, device):
     return total_loss / len(dataloader), accuracy
 ```
 
-### 5. Main Training Loop
+**Difference from training:**
+- `model.eval()` — Disables dropout (we want consistent predictions)
+- `torch.no_grad()` — Don't track gradients (no training, so no need for gradients)
+- No `optimizer.step()` — We're not updating anything, just measuring
+
+> **Analogy:** Training is like practicing a sport with a coach (you get feedback and adjust). Evaluation is like a referee watching a game and keeping score (no coaching, just measurement).
+
+---
+
+### 4. Main Training Loop
 
 ```python
-def run_experiment(dataset_name="sst", freeze=True, batch_size=16, lr=1e-3, epochs=10):
+def run_experiment(dataset_name="sst", freeze=True, batch_size=64, lr=3e-3, epochs=10):
     print(f"\n{'='*50}")
     print(f"Experiment: {dataset_name.upper()}, freeze={freeze}")
     print(f"{'='*50}")
@@ -244,75 +315,130 @@ def run_experiment(dataset_name="sst", freeze=True, batch_size=16, lr=1e-3, epoc
     return best_dev_acc, test_acc
 ```
 
-### 6. Run It
+### What happens during training:
+
+```
+Epoch 1:  Train → calculate error → update weights → check dev accuracy
+Epoch 2:  Train → calculate error → update weights → check dev accuracy
+...
+Epoch 10: Train → calculate error → update weights → check dev accuracy
+
+After all epochs: Load the model with the BEST dev accuracy → test on test set
+```
+
+**Why save the best model?** The model might get worse after a certain point (overfitting). We keep the version that performed best on the dev set.
+
+**What is "best"?** Highest accuracy on the dev set (not training set). We don't care about training accuracy — we care about how well the model generalizes to new data.
+
+---
+
+### 5. Run SST Frozen Baseline
 
 ```python
-# SST baseline (frozen)
 sst_dev, sst_test = run_experiment(
     dataset_name="sst",
-    freeze=True,
-    batch_size=16,
-    lr=1e-3,
+    freeze=True,       # GPT-2 stays frozen
+    batch_size=64,
+    lr=3e-3,           # Higher learning rate (only 3,845 params to train)
     epochs=10
 )
-```
 
 **Expected output:** ~0.45 (45%) dev accuracy
 
+**Training time:** ~1-2 min on GPU
+
+**What does 45% mean?** Random guessing would give 20% (since there are 5 classes). So 45% is much better than random, but not great. SST is a hard dataset — short sentences with 5 subtle sentiment levels.
+
 ---
 
-## CFIMDB Baseline
+### 6. Run CFIMDB Frozen Baseline
 
 ```python
-# CFIMDB baseline (frozen) — use smaller batch if GPU memory is limited
 cfimdb_dev, cfimdb_test = run_experiment(
     dataset_name="cfimdb",
     freeze=True,
-    batch_size=8,   # Reviews are longer, use smaller batch
-    lr=1e-3,
-    epochs=5        # CFIMDB is easier, converges faster
+    batch_size=32,     # Smaller batch because reviews are longer
+    lr=3e-3,
+    epochs=5           # CFIMDB converges faster (easier task)
 )
-```
 
 **Expected output:** ~0.83-0.90 (83-90%) dev accuracy
 
+**Training time:** ~3-5 min on GPU
+
+**Why is CFIMDB so much higher than SST?**
+1. **Binary classification** — only 2 choices instead of 5
+2. **Longer text** — more context to work with (~234 words vs ~19 words)
+3. **More data** — 40,000 training examples vs 8,544
+
 ---
 
-## Experiment Tracking
+## Reading the Training Output
 
-Use a dict to track all results:
+During training, you'll see output like:
 
-```python
-results = {}
-
-results['sst_frozen'] = run_experiment("sst", freeze=True, batch_size=16, lr=1e-3, epochs=10)
-results['cfimdb_frozen'] = run_experiment("cfimdb", freeze=True, batch_size=8, lr=1e-3, epochs=5)
-
-# Display summary
-print("\n\n=== RESULTS SUMMARY ===")
-for name, (dev, test) in results.items():
-    print(f"{name:20s} | Dev: {dev:.4f} | Test: {test:.4f}")
 ```
+Epoch 1/10
+Training: 100%|██████████| 134/134 [00:07<00:00, 17.8it/s]
+Evaluating: 100%|██████████| 18/18 [00:01<00:00, 20.5it/s]
+Train Loss: 1.5234 | Train Acc: 0.3245
+Dev Loss:   1.4876 | Dev Acc:   0.3512
+```
+
+**What to look for:**
+
+| Signal | Good sign | Bad sign |
+|--------|-----------|----------|
+| Train Loss | Decreasing each epoch | Increasing or staying flat |
+| Dev Loss | Decreasing (parallels training) | Starts increasing while train loss decreases (OVERFITTING!) |
+| Train Accuracy | Increasing each epoch | Stuck at same value |
+| Dev Accuracy | Increasing (parallels training) | Stays low or decreases |
+
+**For the frozen baseline:** The loss should steadily decrease and accuracy should increase. Since only the classifier head is training, convergence is fast (5-10 epochs is enough).
+
+---
+
+## Expected Results Summary
+
+| Experiment | Dev Accuracy | Test Accuracy | Time |
+|-----------|-------------|---------------|------|
+| SST Frozen | ~45% | ~44% | ~1-2 min |
+| CFIMDB Frozen | ~83-90% | ~82-89% | ~3-5 min |
 
 ---
 
 ## Hyperparameter Notes
 
-| Parameter | Frozen SST | Frozen CFIMDB |
+| Parameter | SST Frozen | CFIMDB Frozen |
 |-----------|-----------|---------------|
-| Learning rate | 1e-3 (higher is OK since only head trains) | 1e-3 |
-| Batch size | 16-32 | 8-16 |
+| Learning rate | 3e-3 | 3e-3 |
+| Batch size | 64 | 32 |
 | Dropout | 0.1 | 0.1 |
 | Epochs | 10 | 5 |
-| Training time | ~5 min (GPU) | ~10 min (GPU) |
+
+**Why is the learning rate 3e-3 (0.003)?** Since we're only training 3,845 parameters (not 124 million), we can use a higher learning rate. The model can take bigger steps because there's less risk of "breaking" anything.
 
 ---
 
 ## Common Issues
 
-| Problem | Fix |
-|---------|-----|
-| Loss not decreasing | Check that GPT-2 is actually frozen (no gradients) |
-| CUDA out of memory | Reduce batch_size or max_length |
-| Low accuracy (~20% for SST) | Make sure labels are 0-4 not 1-5 |
-| Tokenizer errors | Ensure you set `tokenizer.pad_token = tokenizer.eos_token` |
+| Problem | Likely cause | Fix |
+|---------|-------------|-----|
+| Loss not decreasing | GPT-2 not actually frozen (gradients flowing) | Check `param.requires_grad` is False for GPT-2 params |
+| CUDA out of memory | Batch too large for GPU | Reduce batch_size or max_length |
+| Accuracy stuck at ~20% (SST) | Label values wrong | Check labels are 0-4, not 1-5 |
+| Tokenizer errors | Padding token not set | Ensure `tokenizer.pad_token = tokenizer.eos_token` |
+| Accuracy much lower than expected | Training loop bug | Compare your results with the expected values |
+
+---
+
+## What These Baseline Results Tell You
+
+Your frozen baseline results are the **starting point**. Your innovation should try to improve on these numbers.
+
+| Dataset | Baseline (Frozen) | Your Goal |
+|---------|-------------------|-----------|
+| SST | ~45% | Beat 45% |
+| CFIMDB | ~83-90% | Beat 83-90% |
+
+**Note:** If you get CFIMDB accuracy much higher than 83% (e.g., 90%), that's because our dataset has 40K training examples vs the original 1.7K. Your innovation will need to improve on YOUR baseline, not the paper's.

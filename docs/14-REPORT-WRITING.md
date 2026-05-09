@@ -1,6 +1,22 @@
-# 14 — Report Writing
+# 14 — Report Writing (Beginner-Friendly)
 
-How to write your 6-8 page NLP project report.
+## What You'll Learn
+
+- How to write your 6-8 page NLP project report
+- What to put in each section
+- Key writing tips for beginners
+- How to use LaTeX (briefly)
+
+---
+
+## Key Terms (Defined Simply)
+
+| Term | Simple definition | Analogy |
+|------|------------------|---------|
+| **Abstract** | A short summary of the entire paper (what you did, what you found) | A movie trailer — gives you the highlights without spoiling everything |
+| **BibTeX** | A system for managing references/citations | A digital recipe box where you store all your recipe sources |
+| **LaTeX** | A document preparation system (not Word) | Like coding your document instead of typing it |
+| **Ablation** | Testing what happens when you remove a component | Baking without sugar to see if it's still good |
 
 ---
 
@@ -36,7 +52,9 @@ Original CS224N Project: Default Final Project — Sentiment Classification
 
 ### 2. Abstract (<300 words)
 
-**Structure:**
+**The abstract is the most important paragraph of your paper.** Many people will only read this.
+
+**Structure (4 sentences):**
 1. **Problem**: One sentence on sentiment classification
 2. **Approach**: What you did (GPT-2 + your innovation)
 3. **Results**: Key numbers (SST: X%, CFIMDB: Y%)
@@ -49,30 +67,55 @@ Original CS224N Project: Default Final Project — Sentiment Classification
 
 ### 3. Introduction (~1 page)
 
-**Structure:**
-1. **Hook**: Why sentiment analysis matters (product reviews, social media)
-2. **Background**: Pretrained language models (GPT-2, BERT)
-3. **Gap**: What's missing / what this paper addresses
-4. **Your contribution**: What you did differently
-5. **Results preview**: Best numbers
-6. **Roadmap**: "Section 2 covers related work..."
+**What to include:**
 
-**Tip**: Cite 3-5 papers here (GPT-2 paper, BERT paper, sentiment analysis surveys)
+1. **Hook** (3-4 sentences): Why does sentiment analysis matter?
+   - Product reviews, social media monitoring, customer feedback
+   - Billions of text items generated daily — automating analysis is valuable
+
+2. **Background** (3-4 sentences): What are pretrained language models?
+   - GPT-2, BERT — trained on massive text data
+   - Transfer learning: adapt them to new tasks
+
+3. **Gap** (1-2 sentences): What's missing?
+   - Standard approaches have limitations
+   - You propose to address one of those
+
+4. **Your contribution** (2-3 sentences): What you did differently
+   - Briefly describe your innovation (save details for Approach section)
+
+5. **Results preview** (1 sentence): Best numbers
+
+6. **Roadmap** (1 sentence): "Section 2 covers related work..."
+
+**Tip:** Cite 3-5 papers here (GPT-2 paper, BERT paper, sentiment analysis surveys)
 
 ---
 
 ### 4. Related Work (~0.5 page)
 
-**Structure:**
-1. **Traditional sentiment analysis**: BoW, SVM, LSTMs
-2. **Pretrained language models**: GPT-2, BERT, RoBERTa
-3. **Fine-tuning vs. feature extraction**: The debate
-4. **Your innovation's related work**: Papers that inspired your approach
+**What to include:**
+
+1. **Traditional sentiment analysis** (2-3 sentences):
+   - Bag of Words, SVM, LSTMs
+   - These required careful feature engineering
+
+2. **Pretrained language models** (2-3 sentences):
+   - GPT-2, BERT, RoBERTa
+   - These learn general language representations
+
+3. **Fine-tuning vs. feature extraction** (1-2 sentences):
+   - The debate in the literature
+   - Each has trade-offs
+
+4. **Your innovation's related work** (2-3 sentences):
+   - Papers that inspired your approach
+   - How your work builds on or differs from theirs
 
 **Key papers to cite:**
 - Radford et al., 2019 — GPT-2
 - Devlin et al., 2019 — BERT
-- Vaswani et al., 2017 — Transformers
+- Vaswani et al., 2017 — Transformers (attention is all you need)
 - Howard & Ruder, 2018 — ULMFiT (gradual unfreezing)
 - Houlsby et al., 2019 — Adapters
 
@@ -80,26 +123,38 @@ Original CS224N Project: Default Final Project — Sentiment Classification
 
 ### 5. Approach (~1-2 pages)
 
-**Structure:**
-1. **Problem formulation**: Input → GPT-2 → classifier → output
-2. **GPT-2 architecture**: Brief description, last-token pooling
-3. **Baseline 1: Frozen features**: Diagram, training details
-4. **Baseline 2: Fine-tuning**: Differences from frozen
-5. **Your innovation**: Full description with:
-   - Motivation (why this should work)
-   - Architecture diagram
-   - Key equations or pseudocode
-   - Implementation details
+**What to include:**
 
-**Include a model architecture diagram!**
+1. **Problem formulation** (short paragraph):
+   - Input → GPT-2 → classifier → output
+   - Define the task mathematically
 
-Example diagram description (use tikz or similar):
+2. **GPT-2 architecture** (1-2 paragraphs):
+   - Brief description
+   - Last-token pooling (why we use it)
+   - Diagram recommended
+
+3. **Baseline 1: Frozen features**:
+   - Diagram showing what's frozen vs trained
+   - Training details
+
+4. **Baseline 2: Fine-tuning**:
+   - Differences from frozen
+   - Why different hyperparameters needed
+
+5. **Your innovation** (most detailed):
+   - **Motivation**: Why this should work (2-3 sentences)
+   - **Architecture diagram**: A picture is worth 1000 words
+   - **Key equations or pseudocode**: The core idea
+   - **Implementation details**: Any tricky parts
+
+**Example diagram:**
 ```
 Input Sentence
      ↓
 GPT-2 Encoder (Frozen or Fine-tuned)
      ↓
-Token Hidden States [h1, h2, ..., hn]
+Token Hidden States [h₁, h₂, ..., hₙ]
      ↓
 [Your Innovation] ← e.g., Attention Pooling
      ↓
@@ -114,32 +169,34 @@ Predicted Sentiment
 
 ### 6. Experiments (~1-2 pages)
 
-**6.1 Data**
+#### 6.1 Data
 
 | Dataset | Classes | Train | Dev | Test |
 |---------|---------|-------|-----|------|
 | SST | 5 (0-4) | 8,544 | 1,101 | 2,210 |
-| CFIMDB | 2 (pos/neg) | [your count] | [your count] | [your count] |
+| CFIMDB | 2 (pos/neg) | 40,000 | 5,000 | 5,000 |
 
 Describe preprocessing:
 - Tokenization: GPT-2 BPE tokenizer
 - Max sequence length: 128 (SST), 512 (CFIMDB)
 - Padding/truncation strategy
 
-**6.2 Experimental Details**
+#### 6.2 Experimental Details
 
 | Hyperparameter | Frozen | Fine-tuned |
 |---------------|--------|------------|
 | Optimizer | AdamW | AdamW |
-| Learning rate | 1e-3 | 5e-5 |
+| Learning rate | 3e-3 | 5e-5 |
 | Batch size | 16 | 8 |
 | Epochs | 10 | 5 |
 | Dropout | 0.1 | 0.1 |
 | Weight decay | 0.01 | 0.01 |
 | Gradient clipping | None | 1.0 |
 | LR scheduler | None | Linear warmup |
+| GPU | [Your GPU] | [Your GPU] |
+| Training time | ~5-10 min | ~30-60 min |
 
-**6.3 Results**
+#### 6.3 Results
 
 | Model | SST Dev | SST Test | CFIMDB Dev | CFIMDB Test |
 |-------|---------|----------|------------|-------------|
@@ -154,31 +211,27 @@ Include a **bar chart** comparing results.
 
 ### 7. Analysis (~1-2 pages)
 
-**Structure:**
-
-**7.1 Confusion Matrix Analysis**
+#### 7.1 Confusion Matrix Analysis
 - Which classes are confused? (e.g., SST: very negative ↔ negative)
 - Include confusion matrix figure
+- **Why it matters:** Shows the model isn't making random mistakes — it's confused between similar classes
 
-**7.2 Error Analysis**
-- Show 3-5 example errors
-- Why did the model get them wrong?
-  - Ambiguous sentences
-  - Sarcasm
-  - Length effects
+#### 7.2 Error Analysis
+- Show 3-5 example errors with analysis
+- **Why it matters:** Numbers don't tell the whole story. Examples help readers understand the model's limitations
 
 **Example error table:**
 | Text | True | Pred | Analysis |
 |------|------|------|----------|
-| "This movie is not bad" | 3 (positive) | 2 (neutral) | Negation confuses model |
-| "A truly disappointing film" | 1 (negative) | 0 (very neg) | Intensity mismatch |
+| "This movie is not bad" | 3 (positive) | 2 (neutral) | Negation confuses model — "not bad" is positive, but model sees "bad" as negative |
+| "A truly disappointing film" | 1 (negative) | 0 (very neg) | Intensity mismatch — model overestimates the negativity |
 
-**7.3 Effect of Sentence Length**
+#### 7.3 Effect of Sentence Length
 - Plot accuracy vs. length
 - Are longer sentences harder?
 
-**7.4 Innovation Analysis**
-- Ablation study table
+#### 7.4 Innovation Analysis
+- Ablation study table (what happens when you remove parts of your innovation?)
 - When does your innovation help most?
 - Any failure cases?
 
@@ -187,10 +240,12 @@ Include a **bar chart** comparing results.
 ### 8. Conclusion (~0.5 page)
 
 **Structure:**
-1. **Summary**: 2-3 sentences on what you did
-2. **Key findings**: What worked, what didn't
-3. **Limitations**: (e.g., only tested on 2 datasets, GPT-2 small only)
-4. **Future work**: What would you try next?
+1. **Summary** (2-3 sentences): What you did
+2. **Key findings** (2-3 sentences): What worked, what didn't
+3. **Limitations** (1-2 sentences): Be honest about weaknesses
+   - Only tested on 2 datasets
+   - Only used GPT-2 small
+4. **Future work** (2-3 sentences): What would you try next?
    - Larger models (GPT-2 XL, GPT-3)
    - Other pooling strategies
    - More datasets
@@ -236,15 +291,23 @@ Include a **bar chart** comparing results.
 
 ---
 
-## Writing Tips
+## Writing Tips for Beginners
 
-1. **Be concise**: Every sentence should add value
-2. **Be precise**: Use exact numbers, not vague terms ("significantly better" → "2.4% improvement")
-3. **Use active voice**: "We trained the model..." not "The model was trained..."
-4. **Label all figures/tables**: "Figure 1: Training curves" with caption
-5. **Reference figures in text**: "As shown in Figure 1..."
-6. **Use LaTeX math**: `$y = W h_T + b$`
-7. **Proofread**: Read aloud at least once
+1. **Write first, edit later** — Don't try to make it perfect as you write. Just get ideas down, then refine.
+
+2. **One idea per paragraph** — If a paragraph has more than one main idea, split it.
+
+3. **Use active voice** — "We trained the model..." not "The model was trained..." Active voice is clearer and more direct.
+
+4. **Be precise** — Use exact numbers ("2.4% improvement"), not vague terms ("significantly better").
+
+5. **Label all figures/tables** — "Figure 1: Training curves" with a caption underneath. Reference them in text: "As shown in Figure 1..."
+
+6. **Keep it simple** — If you can explain something in plain English, do that. Don't use jargon to sound smart.
+
+7. **Proofread** — Read your paper aloud at least once. You'll catch awkward phrasing.
+
+8. **Ask a friend to read it** — If they can understand it, you're doing it right.
 
 ---
 

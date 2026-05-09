@@ -1,10 +1,29 @@
-# 12 — Results Analysis
+# 12 — Results Analysis (Beginner-Friendly)
 
-After running experiments, analyze what happened and why.
+## What You'll Learn
+
+- How to analyze your model's performance beyond just "accuracy"
+- What a confusion matrix tells you
+- How to find and analyze specific errors
+- How to check if your improvement is statistically significant
+
+---
+
+## Key Terms (Defined Simply)
+
+| Term | Simple definition | Analogy |
+|------|------------------|---------|
+| **Confusion matrix** | A table showing how often the model predicts each class vs the true class | A teacher's gradebook showing which questions students got right and wrong, and what wrong answers they gave |
+| **Precision** | Of all the times the model said "positive," how many were actually positive? | "When I predict it'll rain, how often am I right?" |
+| **Recall** | Of all the actually positive examples, how many did the model catch? | "Of all the rainy days, how many did I predict?" |
+| **F1 score** | The harmonic mean of precision and recall | A balanced score that penalizes being too conservative or too aggressive |
+| **p-value** | The probability that your improvement happened by chance | If p < 0.05, the improvement is "statistically significant" (real, not luck) |
 
 ---
 
 ## 1. Compare Your Results to the Reference
+
+First, see how your numbers stack up against the expected results:
 
 ```python
 # Your results
@@ -34,9 +53,17 @@ for exp in my_results:
 
 ---
 
-## 2. Confusion Matrix
+## 2. Confusion Matrix (SST — 5 Classes)
 
-Visualize which classes are being confused:
+### What is a confusion matrix?
+
+It's a grid that shows:
+- **Rows**: True labels (what the correct answer actually was)
+- **Columns**: Predicted labels (what the model guessed)
+- **Diagonal**: Correct predictions (the model got it right)
+- **Off-diagonal**: Errors (the model got it wrong)
+
+> **Analogy:** Imagine a test with 5 possible grades (A, B, C, D, F). A confusion matrix shows: "Of the students who deserved an A, how many got A, how many got B, how many got C, etc."
 
 ```python
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
@@ -59,10 +86,8 @@ def plot_confusion_matrix(model, dataloader, device, class_names=None):
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
     
-    # Confusion matrix
     cm = confusion_matrix(all_labels, all_preds)
     
-    # Plot
     if class_names is None:
         class_names = ['Very Neg', 'Neg', 'Neutral', 'Pos', 'Very Pos']
     
@@ -70,7 +95,6 @@ def plot_confusion_matrix(model, dataloader, device, class_names=None):
     disp.plot(cmap='Blues', xticks_rotation=45)
     plt.title('Confusion Matrix')
     plt.tight_layout()
-    plt.savefig('confusion_matrix.png', dpi=150)
     plt.show()
     
     # Per-class accuracy
@@ -81,32 +105,35 @@ def plot_confusion_matrix(model, dataloader, device, class_names=None):
         print(f"  {name:15s}: {correct}/{total} = {correct/total*100:.1f}%")
     
     return cm
-
-# Usage
-# plot_confusion_matrix(model, dataloaders['test'], device)
 ```
 
-**Example for SST (5 classes):**
+### How to read the output:
+
 ```
 Per-class accuracy:
-  Very Neg      : 85/200 = 42.5%
-  Neg           : 120/250 = 48.0%
-  Neutral       : 200/350 = 57.1%
-  Pos           : 180/320 = 56.2%
-  Very Pos      : 90/200 = 45.0%
+  Very Neg      : 85/200 = 42.5%    ← Hardest (most confused with "Neg")
+  Neg           : 120/250 = 48.0%   
+  Neutral       : 200/350 = 57.1%   ← Easiest
+  Pos           : 180/320 = 56.2%   
+  Very Pos      : 90/200 = 45.0%    
 ```
 
-This tells you: neutral and positive are easiest, very negative/very positive are hardest (consistent with the reference paper).
+**What this tells you:**
+- Neutral and Positive are the easiest (the model has most data for these)
+- Very Negative and Very Positive are hardest (the extremes are harder to distinguish)
+- Most errors are between **adjacent classes** (predicting 3 instead of 4, or 1 instead of 0)
+- This is expected! Even humans sometimes disagree on whether a review is "positive" vs "very positive"
 
 ---
 
-## 3. Per-Class Analysis for CFIMDB
+## 3. Per-Class Analysis for CFIMDB (Binary)
+
+For binary classification, we look at precision, recall, and F1:
 
 ```python
+from sklearn.metrics import classification_report
+
 def analyze_binary_results(model, dataloader, device):
-    """For binary classification: precision, recall, F1 per class."""
-    from sklearn.metrics import classification_report
-    
     model.eval()
     all_preds = []
     all_labels = []
@@ -127,11 +154,25 @@ def analyze_binary_results(model, dataloader, device):
           target_names=['Negative', 'Positive']))
 ```
 
+**Expected output (fine-tuned CFIMDB):**
+```
+              precision    recall  f1-score   support
+    Negative       0.98      0.97      0.97      5000
+    Positive       0.97      0.98      0.97      5000
+```
+
+Both classes are near-perfect for the fine-tuned model.
+
 ---
 
 ## 4. Error Analysis
 
-Look at specific examples the model got wrong:
+### Why do error analysis?
+
+Numbers don't tell the full story. Looking at actual examples where the model was wrong helps you understand:
+- **Patterns**: Does the model fail on sarcastic sentences? Very short sentences? Sentences with negation?
+- **Data issues**: Are some labels wrong? (It happens!)
+- **Model limitations**: What kinds of texts does the model struggle with?
 
 ```python
 def show_errors(model, dataloader, device, tokenizer, num_examples=10):
@@ -175,18 +216,20 @@ def show_errors(model, dataloader, device, tokenizer, num_examples=10):
         print()
 ```
 
-Analyze patterns in the errors:
-- Are errors mostly between adjacent classes? (e.g., predicting 3 instead of 4)
-- Are longer sentences harder?
-- Are neutral sentences harder?
+**Look for patterns in the errors:**
+- Are errors mostly between adjacent classes? (Predicting 3 instead of 4)
+- Are longer or shorter sentences harder?
+- Does the model struggle with negation? ("not bad" means positive, but model might predict negative)
+- Does the model handle sarcasm? ("Great, another boring movie")
 
 ---
 
 ## 5. Accuracy vs. Sentence Length
 
+Check if the model performs worse on very short or very long sentences:
+
 ```python
 def accuracy_by_length(model, df, dataloader, tokenizer, device):
-    """Check if accuracy varies by sentence length."""
     model.eval()
     all_preds = []
     all_labels = []
@@ -201,14 +244,12 @@ def accuracy_by_length(model, df, dataloader, tokenizer, device):
             logits = model(input_ids, attention_mask)
             preds = torch.argmax(logits, dim=1)
             
-            # Get actual lengths (non-padding tokens)
             lengths = attention_mask.sum(dim=1).cpu()
             
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
             all_lengths.extend(lengths.numpy())
     
-    # Group by length buckets
     df_result = pd.DataFrame({
         'length': all_lengths,
         'correct': np.array(all_preds) == np.array(all_labels)
@@ -223,21 +264,21 @@ def accuracy_by_length(model, df, dataloader, tokenizer, device):
     print("\nAccuracy by sentence length:")
     print(accuracy_by_len)
     
-    # Plot
     accuracy_by_len.plot(kind='bar')
     plt.title('Accuracy by Sentence Length')
     plt.xlabel('Length (tokens)')
     plt.ylabel('Accuracy')
     plt.tight_layout()
-    plt.savefig('accuracy_by_length.png')
     plt.show()
 ```
+
+**What to look for:** If accuracy drops on very long sentences, your model might be truncating important information.
 
 ---
 
 ## 6. Innovation Impact Analysis
 
-If you implemented an innovation, measure its specific impact:
+Compare your innovation to the baseline:
 
 ```python
 def compare_innovations(results_dict):
@@ -265,25 +306,22 @@ def compare_innovations(results_dict):
 
 ---
 
-## 7. Statistical Significance
+## 7. Statistical Significance (Optional)
 
-To check if improvements are significant:
+### What is statistical significance?
+
+If your innovation gives +1%, how do you know it's a REAL improvement and not just luck? Statistical tests help answer this.
+
+**McNemar's test** is designed for comparing two classifiers on the same test set:
 
 ```python
-from sklearn.model_selection import cross_val_score
-# For simplicity, use McNemar's test for paired comparison
 from statsmodels.stats.contingency_tables import mcnemar
 
 def mcnemar_test(model1_preds, model2_preds, true_labels):
     """
     Test if model2 is significantly better than model1.
     """
-    # Contingency table
-    #   | Model2 correct | Model2 wrong
-    # ---+----------------+-------------
-    # M1 correct | a | b
-    # M1 wrong   | c | d
-    
+    # Build contingency table
     a = sum((m1 == t) & (m2 == t) for m1, m2, t in zip(model1_preds, model2_preds, true_labels))
     b = sum((m1 == t) & (m2 != t) for m1, m2, t in zip(model1_preds, model2_preds, true_labels))
     c = sum((m1 != t) & (m2 == t) for m1, m2, t in zip(model1_preds, model2_preds, true_labels))
@@ -304,15 +342,19 @@ def mcnemar_test(model1_preds, model2_preds, true_labels):
         print("→ Not statistically significant")
 ```
 
+**How to interpret:**
+- **p < 0.05**: Only 5% chance the improvement happened randomly. It's REAL.
+- **p >= 0.05**: The improvement could be due to chance. Be careful claiming it works.
+
 ---
 
 ## Summary Checklist
 
 After completing your analysis:
 
-- [ ] Results table with all experiments
-- [ ] Confusion matrices for SST (5 classes)
-- [ ] Error analysis with text examples
-- [ ] Accuracy vs. sentence length analysis
-- [ ] Innovation impact analysis (with significance)
-- [ ] Key insights written up for the report
+- [ ] Results table with all experiments (frozen, finetune, innovation)
+- [ ] Confusion matrices for SST (5 classes — show which classes are confused)
+- [ ] Error analysis with text examples (show 5-10 actual errors)
+- [ ] Accuracy vs. sentence length analysis (does length matter?)
+- [ ] Innovation impact analysis (how much did your idea help?)
+- [ ] Key insights written up for the report (explain WHY)

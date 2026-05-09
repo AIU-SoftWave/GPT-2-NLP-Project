@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.ipynb_checkpoints/
+
+# Model checkpoints (~500MB each)
+checkpoints/
+*.pt
+
+# Data
+data/
+*.zip
+
+# Editor / IDE
+.obsidian/
+.vscode/
+.idea/
+
+# PDF reports
+*.pdf
+
+# System files
+.DS_Store
+Thumbs.db

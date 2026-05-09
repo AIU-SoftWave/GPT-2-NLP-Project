@@ -1,12 +1,31 @@
-# 13 — Visualization
+# 13 — Visualization (Beginner-Friendly)
 
-Good visualizations make your report stronger. Here are key plots to create.
+## What You'll Learn
+
+- How to create the key plots for your report
+- What each plot tells you about your model
+- How to save plots as high-quality images for the report
+
+---
+
+## Key Terms (Defined Simply)
+
+| Term | Simple definition | Analogy |
+|------|------------------|---------|
+| **Training curve** | A graph showing how loss/accuracy changes over epochs | A fitness tracker showing your weight loss over weeks |
+| **Confusion matrix** | A grid showing correct vs incorrect predictions | A gradebook showing which problems students got right/wrong |
+| **Ablation study** | A bar chart showing what happens when you remove components | A recipe comparison showing the effect of each ingredient |
+| **Attention weights** | Values showing which words the model focused on | A heat map of where a person was looking |
 
 ---
 
 ## 1. Training Curves
 
-Plot loss and accuracy over epochs:
+### What this tells you:
+
+- **Is the model learning?** (Loss should decrease over time)
+- **Is the model overfitting?** (Dev loss starts increasing while train loss keeps decreasing)
+- **When does the model converge?** (When the curve flattens — more epochs won't help)
 
 ```python
 import matplotlib.pyplot as plt
@@ -39,22 +58,29 @@ def plot_training_curves(train_losses, dev_losses, train_accs, dev_accs, save_pa
     if save_path:
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.show()
-
-# Usage (collect these during training):
-# train_losses = [1.2, 0.9, 0.7, 0.6, 0.5]
-# dev_losses = [1.1, 0.85, 0.75, 0.7, 0.72]
-# train_accs = [0.35, 0.42, 0.46, 0.48, 0.50]
-# dev_accs = [0.38, 0.44, 0.47, 0.49, 0.48]
-# plot_training_curves(train_losses, dev_losses, train_accs, dev_accs, 'training_curves.png')
 ```
+
+**How to read these plots:**
+
+| Pattern | What it means |
+|---------|---------------|
+| Both losses decreasing | ✅ Model is learning correctly |
+| Train loss decreasing, dev loss INCREASING | ⚠️ **Overfitting** — model is memorizing, not generalizing |
+| Both losses flattening | ✅ Model converged — training is done |
+| Loss not decreasing | ❌ Something wrong — check code, learning rate, or data |
 
 ---
 
 ## 2. Confusion Matrix Heatmap
 
+### What this tells you:
+
+- **Which classes are confused with each other** — diagonal = correct, off-diagonal = mistakes
+- **Which class is hardest** — the row with the lowest diagonal value
+- **Direction of confusion** — e.g., is "very negative" usually predicted as "negative"?
+
 ```python
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-import matplotlib.pyplot as plt
 
 def plot_confusion_matrix(cm, class_names, title='Confusion Matrix', save_path=None):
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -66,7 +92,6 @@ def plot_confusion_matrix(cm, class_names, title='Confusion Matrix', save_path=N
     ax.set_xlabel('Predicted Label', fontsize=12)
     ax.set_ylabel('True Label', fontsize=12)
     
-    # Rotate labels
     plt.setp(ax.get_xticklabels(), rotation=45, ha='right', fontsize=10)
     plt.setp(ax.get_yticklabels(), fontsize=10)
     
@@ -85,7 +110,11 @@ sst_classes = ['Very Neg', 'Neg', 'Neutral', 'Pos', 'Very Pos']
 
 ## 3. Results Comparison Bar Chart
 
-Compare your methods side by side:
+### What this tells you:
+
+- How your methods compare at a glance
+- Which method is best on each dataset
+- The gap between frozen, fine-tuned, and your innovation
 
 ```python
 def plot_results_comparison(results_dict, save_path=None):
@@ -113,7 +142,7 @@ def plot_results_comparison(results_dict, save_path=None):
         # Add value labels on bars
         for bar, val in zip(bars, values):
             ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01,
-                   f'{val:.3f}', ha='center', va='bottom', fontsize=9, rotation=0)
+                   f'{val:.3f}', ha='center', va='bottom', fontsize=9)
         
         multiplier += 1
     
@@ -130,19 +159,16 @@ def plot_results_comparison(results_dict, save_path=None):
     if save_path:
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.show()
-
-# Example
-# results = {
-#     'Frozen': {'SST': 0.451, 'CFIMDB': 0.829},
-#     'Fine-tuned': {'SST': 0.518, 'CFIMDB': 0.976},
-#     'Ours': {'SST': 0.542, 'CFIMDB': 0.982},
-# }
-# plot_results_comparison(results, 'results_comparison.png')
 ```
 
 ---
 
 ## 4. Per-Class Accuracy Bar Chart
+
+### What this tells you:
+
+- Which sentiment classes are easiest/hardest for your model
+- If your innovation helps certain classes more than others
 
 ```python
 def plot_per_class_accuracy(cm, class_names, save_path=None):
@@ -153,7 +179,6 @@ def plot_per_class_accuracy(cm, class_names, save_path=None):
     
     bars = ax.bar(class_names, per_class_acc, color=colors[:len(class_names)])
     
-    # Add value labels
     for bar, val in zip(bars, per_class_acc):
         ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02,
                f'{val:.1%}', ha='center', va='bottom', fontsize=10)
@@ -167,94 +192,16 @@ def plot_per_class_accuracy(cm, class_names, save_path=None):
     if save_path:
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.show()
-
-# sst_cm = confusion_matrix(y_true, y_pred)
-# plot_per_class_accuracy(sst_cm, ['Very Neg', 'Neg', 'Neutral', 'Pos', 'Very Pos'], 'per_class_accuracy.png')
 ```
 
 ---
 
-## 5. Accuracy vs. Length Scatter Plot
+## 5. Ablation Study Bar Chart
 
-```python
-def plot_accuracy_vs_length(df, save_path=None):
-    """
-    df should have columns: 'correct' (bool), 'length' (int)
-    """
-    fig, ax = plt.subplots(figsize=(10, 5))
-    
-    # Scatter with jitter
-    jitter = np.random.normal(0, 0.02, len(df))
-    correct = df[df['correct']]
-    incorrect = df[~df['correct']]
-    
-    ax.scatter(correct['length'], np.ones(len(correct)) + jitter[:len(correct)], 
-              alpha=0.3, s=10, c='green', label='Correct')
-    ax.scatter(incorrect['length'], np.zeros(len(incorrect)) + jitter[:len(incorrect)], 
-              alpha=0.3, s=10, c='red', label='Incorrect')
-    
-    ax.set_yticks([0, 1])
-    ax.set_yticklabels(['Incorrect', 'Correct'])
-    ax.set_xlabel('Sentence Length (tokens)', fontsize=12)
-    ax.set_title('Prediction Correctness vs. Sentence Length', fontsize=14)
-    ax.legend(fontsize=10)
-    ax.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
-    plt.show()
-```
+### What this tells you:
 
----
-
-## 6. Attention Visualization (for Attention Pooling)
-
-If you implemented attention pooling, visualize the attention weights:
-
-```python
-def visualize_attention(text, attention_weights, tokenizer, save_path=None):
-    """
-    attention_weights: list of floats, one per token
-    """
-    tokens = tokenizer.tokenize(text)
-    
-    # Truncate if too long for visualization
-    if len(tokens) > 30:
-        tokens = tokens[:30]
-        attention_weights = attention_weights[:30]
-    
-    # Normalize weights for color intensity
-    weights = np.array(attention_weights)
-    weights = (weights - weights.min()) / (weights.max() - weights.min() + 1e-8)
-    
-    fig, ax = plt.subplots(figsize=(max(8, len(tokens)*0.4), 3))
-    
-    # Create colored text
-    for i, (token, weight) in enumerate(zip(tokens, weights)):
-        color = plt.cm.RdYlGn(weight)  # Red (low) to Green (high)
-        ax.text(i, 0, token, fontsize=12,
-               bbox=dict(boxstyle='round,pad=0.3', facecolor=color, alpha=0.7))
-    
-    ax.set_xlim(-1, len(tokens))
-    ax.set_ylim(-1, 1)
-    ax.axis('off')
-    ax.set_title('Token Attention Weights', fontsize=14)
-    
-    plt.tight_layout()
-    if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
-    plt.show()
-
-# Example:
-# text = "The movie was absolutely fantastic and thrilling"
-# dummy_weights = [0.05, 0.02, 0.03, 0.15, 0.20, 0.18, 0.12, 0.10, 0.15]
-# visualize_attention(text, dummy_weights, tokenizer, 'attention_weights.png')
-```
-
----
-
-## 7. Ablation Study Bar Chart
+- Which component of your innovation contributes the most
+- Whether combining components helps more than individual ones
 
 ```python
 def plot_ablation_results(ablation_dict, save_path=None):
@@ -274,7 +221,6 @@ def plot_ablation_results(ablation_dict, save_path=None):
     fig, ax = plt.subplots(figsize=(10, 5))
     bars = ax.bar(methods, values, color=colors, width=0.6)
     
-    # Add improvement arrows
     baseline = values[0]
     for bar, val in zip(bars, values):
         diff = val - baseline
@@ -301,11 +247,12 @@ def plot_ablation_results(ablation_dict, save_path=None):
 
 ## Summary: Which Plots for Your Report?
 
-| Plot | Section | Why Include |
-|------|---------|-------------|
-| Training curves | Experiments | Show convergence, no overfitting |
-| Confusion matrix | Analysis | Show which classes are confused |
-| Results comparison | Results | Clear comparison of all methods |
-| Per-class accuracy | Analysis | Show which classes are hardest |
-| Ablation study | Approach | Show each component's contribution |
-| Attention weights | Analysis | Visualize what model focuses on |
+| Plot | Report Section | Why Include |
+|------|---------------|-------------|
+| Training curves | Experiments | Show the model is learning and not overfitting |
+| Confusion matrix | Analysis | Show which classes are confused (for SST) |
+| Results comparison | Results | Show ALL methods side by side — makes the improvement clear |
+| Per-class accuracy | Analysis | Show which sentiment levels are hardest |
+| Ablation study | Approach | Show each component's contribution to your innovation |
+
+**Tip:** Save each figure with `dpi=150` or `dpi=300` for publication-quality images in your report. Use `save_path` to save them as PNG files.
