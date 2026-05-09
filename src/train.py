@@ -1,6 +1,6 @@
 """
 GPT-2 Sentiment Analysis — single-experiment runner.
-Call from notebook:  !python train.py --dataset sst --frozen --epochs 10
+Call from notebook:  !python -m src.train --dataset sst --frozen --epochs 10
 
 Saves results to results/<name>.json which the notebook loads.
 """
@@ -15,7 +15,7 @@ import pandas as pd
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 
-from src.dataset import SentimentDataset, load_sst_data, load_cfimdb_data
+from src.dataset import SentimentDataset, load_sst_data, load_cfimdb_data, load_cfimdb_cs224n_data
 from src.model import get_model
 
 os.makedirs('results', exist_ok=True)
@@ -91,7 +91,7 @@ def evaluate(model, loader, crit, device):
 # ─── Main ────────────────────────────────────────────────────────────────
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument('--dataset', choices=['sst', 'cfimdb'], required=True)
+    p.add_argument('--dataset', choices=['sst', 'cfimdb', 'cfimdb_cs224n'], required=True)
     p.add_argument('--frozen', action='store_true')
     p.add_argument('--epochs', type=int, default=10)
     p.add_argument('--batch-size', type=int, default=32)
@@ -110,17 +110,19 @@ def main():
 
     if args.dataset == 'sst':
         df = load_sst_data(); num_classes = 5; max_len = 128
+    elif args.dataset == 'cfimdb_cs224n':
+        df = load_cfimdb_cs224n_data(); num_classes = 2; max_len = 512
     else:
         df = load_cfimdb_data(); num_classes = 2; max_len = 512
 
     loaders = make_loaders(df, tokenizer, args.batch_size, max_len, args.workers)
 
     model = get_model(args.model, num_classes, freeze=args.frozen).to(device)
-    try:
-        model = torch.compile(model)
-        print('torch.compile: ON')
-    except Exception:
-        pass
+    #try:
+      #  model = torch.compile(model)
+     #   print('torch.compile: ON')
+    #except Exception:
+   #     pass
 
     mode = 'frozen' if args.frozen else 'finetune'
     name = args.name or f'{args.dataset}_{mode}'
@@ -155,8 +157,13 @@ def main():
             print(f'>> New best dev: {da:.4f}')
 
     model.load_state_dict(torch.load(f'checkpoints/best_model_{name}.pt'))
-    tl_final, ta_final = evaluate(model, loaders['test'], crit, device)
-    print(f'\nTest Loss: {tl_final:.4f} | Test Acc: {ta_final:.4f}')
+    test_labels = loaders['test'].dataset.labels
+    if (test_labels == -1).any():
+        dl_final, ta_final = evaluate(model, loaders['dev'], crit, device)
+        print(f'\nDev Loss: {dl_final:.4f} | Dev Acc: {ta_final:.4f} (test labels unavailable, using dev)')
+    else:
+        tl_final, ta_final = evaluate(model, loaders['test'], crit, device)
+        print(f'\nTest Loss: {tl_final:.4f} | Test Acc: {ta_final:.4f}')
 
     results = {'name': name, 'best_dev': best_dev, 'test_acc': ta_final, 'history': history}
     with open(f'results/{name}.json', 'w') as f:

@@ -40,7 +40,7 @@ def load_sst_data():
     """Load SST data from tree files into a pandas DataFrame."""
     import pytreebank
     data = []
-    tree_path = './data/SST2Data/trainDevTestTrees_PTB/trees/'
+    tree_path = './data/Datasets/SST2Data/trainDevTestTrees_PTB/trees/'
     for split in ['train', 'dev', 'test']:
         full_path = os.path.join(tree_path, f'{split}.txt')
         if not os.path.exists(full_path):
@@ -54,7 +54,7 @@ def load_sst_data():
 
 def load_cfimdb_data():
     """Load IMDB CSV, clean HTML, and create train/dev/test splits."""
-    df = pd.read_csv('./data/CFIMDB/IMDB Dataset.csv')
+    df = pd.read_csv('./data/Datasets/CFIMDB/IMDB Dataset.csv')
     def clean_text(text):
         text = re.sub(r'<br\s*/?>', ' ', text)
         text = re.sub(r'\s+', ' ', text)
@@ -71,3 +71,28 @@ def load_cfimdb_data():
     dev_df['split'] = 'dev'
     test_df['split'] = 'test'
     return pd.concat([train_df, dev_df, test_df])[['text', 'label', 'split']]
+
+
+def load_cfimdb_cs224n_data():
+    """Load original CS224N CFIMDB (1,701 train / 245 dev / 488 test) from downloaded CSVs."""
+    base = './data/Datasets/CFIMDB_CS224N/'
+    parts = []
+
+    for split, fname in [('train', 'ids-cfimdb-train.csv'), ('dev', 'ids-cfimdb-dev.csv')]:
+        path = os.path.join(base, fname)
+        if not os.path.exists(path):
+            print(f'Warning: {path} not found. Skipping...')
+            continue
+        df = pd.read_csv(path, sep='\t')
+        df = df.rename(columns={'sentence': 'text', 'sentiment': 'label'})
+        df['split'] = split
+        parts.append(df[['text', 'label', 'split']])
+
+    path = os.path.join(base, 'ids-cfimdb-test-student.csv')
+    if os.path.exists(path):
+        df = pd.read_csv(path, sep='\t', header=None, skiprows=1, usecols=[3], names=['text'])
+        df['label'] = -1
+        df['split'] = 'test'
+        parts.append(df[['text', 'label', 'split']])
+
+    return pd.concat(parts, ignore_index=True)
