@@ -6,6 +6,6 @@
   "lr": 1e-05,
   "workers": 6,
   "accum": 2,
-  "model": "mean_pool",
-  "name": "cfimdb_finetune_mean_pool"
+  "model": "gated_attention_pool",
+  "name": "cfimdb_finetune_gated"
 }

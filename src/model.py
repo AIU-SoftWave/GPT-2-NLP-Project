@@ -132,6 +132,61 @@ class GPT2AttentionPoolClassifier(nn.Module):
         return self.classifier(sentence_repr)
 
 
+class GatedAttentionPooling(nn.Module):
+    """
+    Gated Attention Pooling module (innovation).
+
+    Unlike softmax attention where token weights compete (sum to 1),
+    each token gets an independent gate via sigmoid. Multiple informative
+    tokens can all be fully weighted without penalizing each other.
+    Final representation is the sum of gated hidden states, normalized
+    by total gate mass to preserve scale (L1 normalization).
+    """
+
+    def __init__(self, hidden_size):
+        super().__init__()
+        self.gate = nn.Linear(hidden_size, 1)
+
+    def forward(self, hidden_states, attention_mask):
+        gates = torch.sigmoid(self.gate(hidden_states)).squeeze(-1)
+        gates = gates * attention_mask.float()
+        total = gates.sum(dim=1, keepdim=True).clamp(min=1e-9)
+        weights = (gates / total).unsqueeze(-1)
+        return (hidden_states * weights).sum(dim=1)
+
+
+class GPT2GatedAttentionPoolClassifier(nn.Module):
+    """
+    Innovation model: gated attention-pooled classification head.
+
+    Replaces softmax attention with independent sigmoid gates so that
+    multiple sentiment-bearing tokens can contribute fully without
+    competing for a fixed weight budget.  Should help most on long
+    documents with many informative tokens (CFIMDB).
+    """
+
+    def __init__(self, num_classes=5, dropout=0.1, freeze=True):
+        super().__init__()
+        self.gpt2 = GPT2Model.from_pretrained('gpt2')
+        hidden_size = self.gpt2.config.hidden_size
+        self.pool = GatedAttentionPooling(hidden_size)
+        self.dropout = nn.Dropout(dropout)
+        self.classifier = nn.Linear(hidden_size, num_classes)
+        if freeze:
+            for param in self.gpt2.parameters():
+                param.requires_grad = False
+            print('  Mode: FROZEN — Only classifier head will be trained')
+        else:
+            print('  Mode: FINE-TUNING — All GPT-2 weights will be updated')
+
+    def forward(self, input_ids, attention_mask):
+        outputs = self.gpt2(input_ids=input_ids, attention_mask=attention_mask)
+        hidden = outputs.last_hidden_state
+        sentence_repr = self.pool(hidden, attention_mask)
+        sentence_repr = self.dropout(sentence_repr)
+        return self.classifier(sentence_repr)
+
+
 # ─── Model registry ─────────────────────────────────────────────────────
 # Map string names (used by --model flag in train.py) to model classes.
 # Add new entries here when implementing additional pooling strategies.
@@ -139,6 +194,7 @@ MODEL_REGISTRY = {
     'baseline': GPT2Classifier,
     'mean_pool': GPT2MeanPoolClassifier,
     'attention_pool': GPT2AttentionPoolClassifier,
+    'gated_attention_pool': GPT2GatedAttentionPoolClassifier,
 }
 
 
