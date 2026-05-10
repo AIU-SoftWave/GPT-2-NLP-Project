@@ -1,5 +1,9 @@
 """
 Data loading and pre-tokenized Dataset for multiprocessing-safe DataLoader workers.
+
+All datasets are tokenized once at construction time (not per-batch),
+so DataLoader workers never need access to the tokenizer object.
+This avoids pickling issues with HuggingFace tokenizers.
 """
 
 import os
@@ -9,7 +13,12 @@ from torch.utils.data import Dataset
 
 
 class SentimentDataset(Dataset):
-    """Pre-tokenizes all text once at init — no per-item tokenizer calls."""
+    """
+    PyTorch Dataset that pre-tokenizes all text at init.
+
+    This design means DataLoader workers (multiprocessing) only need
+    to index into pre-computed tensors — no tokenizer access required.
+    """
 
     def __init__(self, df, tokenizer, max_length=128):
         self.labels = torch.tensor(df['label'].values, dtype=torch.long)
@@ -35,7 +44,12 @@ class SentimentDataset(Dataset):
 
 
 def load_sst_data():
-    """Load SST data from tree files into a pandas DataFrame."""
+    """
+    Load SST (Stanford Sentiment Treebank) data.
+
+    Returns a DataFrame with columns: text, label (0-4), split (train/dev/test).
+    Parses Penn Treebank-style tree files using the pytreebank library.
+    """
     import pytreebank
     data = []
     tree_path = './data/Datasets/SST2Data/trainDevTestTrees_PTB/trees/'
@@ -51,7 +65,14 @@ def load_sst_data():
 
 
 def load_cfimdb_data():
-    """Load CFIMDB (1,701 train / 245 dev / 488 test) from downloaded CSVs."""
+    """
+    Load CFIMDB (CS224N Default Project subset).
+
+    Returns a DataFrame with columns: text, label (0/1), split (train/dev/test).
+    Test labels are set to -1 (unlabeled by design — held out for evaluation).
+
+    Splits: 1,701 train / 245 dev / 488 test.
+    """
     base = './data/Datasets/CFIMDB_CS224N/'
     parts = []
 

@@ -3,7 +3,7 @@
 | File | Purpose |
 |---|---|
 | `dataset.py` | `SentimentDataset` class + `load_sst_data()`, `load_cfimdb_data()` |
-| `model.py` | `GPT2Classifier` + `MODEL_REGISTRY` for adding new models |
+| `model.py` | All model classes + `MODEL_REGISTRY` for adding new models |
 | `train.py` | Training loop, called via `python -m src.train` |
 
 ## Import convention
@@ -26,39 +26,53 @@ from src.model import get_model, MODEL_REGISTRY
 | `--batch-size` | int | 32 | Batch size per step |
 | `--lr` | float | 3e-3 | Learning rate |
 | `--workers` | int | 6 | DataLoader worker processes |
-| `--accum` | int | 1 | Gradient accumulation steps |
+| `--accum` | int | 1 | Gradient accumulation steps (effective batch = batch_size × accum) |
 | `--model` | str | `baseline` | Model name from `MODEL_REGISTRY` |
-| `--name` | str | auto | Custom results filename (saved to `results/<name>.json`) |
+| `--name` | str | auto | Custom experiment folder name (default: `<dataset>_frozen/finetune`) |
+| `--sample` | int | — | Use N training samples for fast debugging |
+
+### Available models
+
+| Model name | Class | Pooling | Params added |
+|---|---|---|---|
+| `baseline` | `GPT2Classifier` | Last token | 0 |
+| `mean_pool` | `GPT2MeanPoolClassifier` | Uniform average | 0 |
+| `attention_pool` | `GPT2AttentionPoolClassifier` | Learned weighted average | 769 |
 
 ### Examples
 
 ```bash
 # SST-5 frozen baseline
-python -m src.train --dataset sst --frozen --epochs 10 --batch-size 64 --lr 3e-3
+python -m src.train --dataset sst --frozen --epochs 10 --batch-size 32 --lr 3e-3
 
 # SST-5 finetune
-python -m src.train --dataset sst --epochs 5 --batch-size 16 --lr 1e-5 --accum 1
+python -m src.train --dataset sst --epochs 10 --batch-size 32 --lr 1e-5
 
 # CFIMDB frozen baseline
 python -m src.train --dataset cfimdb --frozen --epochs 10 --batch-size 32 --lr 3e-3
 
-# CFIMDB finetune (gradient accumulation for smaller batch)
+# CFIMDB finetune (gradient accumulation for memory-constrained GPU)
 python -m src.train --dataset cfimdb --epochs 10 --batch-size 8 --lr 1e-5 --accum 2
 
 # Custom model from registry
-python -m src.train --model my_model --dataset sst --frozen --epochs 10
+python -m src.train --model attention_pool --dataset cfimdb --frozen --epochs 10
 
-# Custom results filename
+# Subset training data for quick debugging
+python -m src.train --dataset sst --frozen --sample 100
+
+# Custom experiment name
 python -m src.train --dataset sst --frozen --name my_experiment
 ```
 
 ### Output
 
-- Best checkpoint → `checkpoints/best_model_<name>.pt`
-- Per-epoch history + test accuracy → `results/<name>.json`
+All results saved to `experiments/<name>/`:
+- `checkpoint.pt` — Best model weights (highest dev accuracy)
+- `results.json` — Full results: config, best_dev, test_acc, per-epoch history
+- `config.json` — Experiment configuration (duplicated from results.json for quick access)
 
 ## Adding a new model
 
 1. Create your model class in `model.py`
-2. Register it in `MODEL_REGISTRY`
+2. Add it to `MODEL_REGISTRY`
 3. Run: `python -m src.train --model your_model_name --dataset sst`

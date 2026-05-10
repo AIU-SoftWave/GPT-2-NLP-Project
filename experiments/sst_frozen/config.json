@@ -1,0 +1,10 @@
+{
+  "dataset": "sst",
+  "frozen": true,
+  "epochs": 10,
+  "batch_size": 64,
+  "lr": 0.003,
+  "accum": 1,
+  "workers": 6,
+  "model": "baseline"
+}

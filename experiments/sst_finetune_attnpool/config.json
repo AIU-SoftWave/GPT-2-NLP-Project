@@ -1,0 +1,11 @@
+{
+  "dataset": "sst",
+  "frozen": false,
+  "epochs": 10,
+  "batch_size": 32,
+  "lr": 1e-05,
+  "workers": 6,
+  "accum": 1,
+  "model": "attention_pool",
+  "name": "sst_finetune_attnpool"
+}

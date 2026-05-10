@@ -1,0 +1,10 @@
+{
+  "dataset": "cfimdb",
+  "frozen": true,
+  "epochs": 10,
+  "batch_size": 32,
+  "lr": 0.003,
+  "accum": 1,
+  "workers": 6,
+  "model": "baseline"
+}
