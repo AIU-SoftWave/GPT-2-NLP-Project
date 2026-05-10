@@ -4,6 +4,7 @@
 
 | Step | Doc | What You'll Learn | Time |
 |------|-----|-------------------|------|
+| 0 | [BEGINNER-CODE-GUIDE.md](BEGINNER-CODE-GUIDE.md) | **Start here if new to NLP.** Every concept + every line of code explained | 1-2 hours |
 | 1 | [01-PROJECT-OVERVIEW.md](01-PROJECT-OVERVIEW.md) | What this project is, goals, grading rubric | 10 min |
 | 2 | [02-SETUP-ENVIRONMENT.md](02-SETUP-ENVIRONMENT.md) | Install Python, packages, verify environment | 20 min |
 | 3 | [03-UNDERSTANDING-SST-DATASET.md](03-UNDERSTANDING-SST-DATASET.md) | SST treebank format, pytreebank, data stats | 15 min |
@@ -22,6 +23,9 @@
 ---
 
 ## Recommended Order
+
+### Phase 0: Absolute Beginner (Step 0)
+**Complete NLP newcomer? Start here.** This guide explains every concept and every line of code from scratch. It's designed to be read alongside the source files.
 
 ### Phase 1: Setup (Steps 1-2)
 Read the overview and set up your environment.
