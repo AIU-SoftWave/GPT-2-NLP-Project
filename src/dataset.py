@@ -3,11 +3,9 @@ Data loading and pre-tokenized Dataset for multiprocessing-safe DataLoader worke
 """
 
 import os
-import re
 import torch
 import pandas as pd
 from torch.utils.data import Dataset
-from sklearn.model_selection import train_test_split
 
 
 class SentimentDataset(Dataset):
@@ -53,28 +51,7 @@ def load_sst_data():
 
 
 def load_cfimdb_data():
-    """Load IMDB CSV, clean HTML, and create train/dev/test splits."""
-    df = pd.read_csv('./data/Datasets/CFIMDB/IMDB Dataset.csv')
-    def clean_text(text):
-        text = re.sub(r'<br\s*/?>', ' ', text)
-        text = re.sub(r'\s+', ' ', text)
-        return text.strip()
-    df['text'] = df['review'].apply(clean_text)
-    df['label'] = (df['sentiment'] == 'positive').astype(int)
-    train_df, temp_df = train_test_split(
-        df, test_size=0.2, random_state=42, stratify=df['label']
-    )
-    dev_df, test_df = train_test_split(
-        temp_df, test_size=0.5, random_state=42, stratify=temp_df['label']
-    )
-    train_df['split'] = 'train'
-    dev_df['split'] = 'dev'
-    test_df['split'] = 'test'
-    return pd.concat([train_df, dev_df, test_df])[['text', 'label', 'split']]
-
-
-def load_cfimdb_cs224n_data():
-    """Load original CS224N CFIMDB (1,701 train / 245 dev / 488 test) from downloaded CSVs."""
+    """Load CFIMDB (1,701 train / 245 dev / 488 test) from downloaded CSVs."""
     base = './data/Datasets/CFIMDB_CS224N/'
     parts = []
 

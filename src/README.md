@@ -37,13 +37,13 @@ from src.model import get_model, MODEL_REGISTRY
 python -m src.train --dataset sst --frozen --epochs 10 --batch-size 64 --lr 3e-3
 
 # SST-5 finetune
-python -m src.train --dataset sst --epochs 5 --batch-size 16 --lr 5e-5 --accum 1
+python -m src.train --dataset sst --epochs 5 --batch-size 16 --lr 1e-5 --accum 1
 
 # CFIMDB frozen baseline
-python -m src.train --dataset cfimdb --frozen --epochs 5 --batch-size 32 --lr 3e-3
+python -m src.train --dataset cfimdb --frozen --epochs 10 --batch-size 32 --lr 3e-3
 
 # CFIMDB finetune (gradient accumulation for smaller batch)
-python -m src.train --dataset cfimdb --epochs 3 --batch-size 8 --lr 5e-5 --accum 2
+python -m src.train --dataset cfimdb --epochs 10 --batch-size 8 --lr 1e-5 --accum 2
 
 # Custom model from registry
 python -m src.train --model my_model --dataset sst --frozen --epochs 10

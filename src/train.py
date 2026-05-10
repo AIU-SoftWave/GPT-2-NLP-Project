@@ -10,12 +10,12 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
-from transformers import GPT2Tokenizer, get_linear_schedule_with_warmup
+from transformers import GPT2Tokenizer
 import pandas as pd
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 
-from src.dataset import SentimentDataset, load_sst_data, load_cfimdb_data, load_cfimdb_cs224n_data
+from src.dataset import SentimentDataset, load_sst_data, load_cfimdb_data
 from src.model import get_model
 
 os.makedirs('results', exist_ok=True)
@@ -38,7 +38,7 @@ def make_loaders(df, tokenizer, bs, max_len, workers=6):
     return loaders
 
 # ─── Train / Eval ────────────────────────────────────────────────────────
-def train_one_epoch(model, loader, opt, crit, device, scaler=None, accum=1):
+def train_one_epoch(model, loader, opt, crit, device, accum=1):
     model.train()
     total_loss, preds, labels = 0, [], []
     opt.zero_grad()
@@ -47,27 +47,12 @@ def train_one_epoch(model, loader, opt, crit, device, scaler=None, accum=1):
         ids = b['input_ids'].to(device, non_blocking=True)
         mask = b['attention_mask'].to(device, non_blocking=True)
         labs = b['label'].to(device, non_blocking=True)
-
-        if scaler:
-            with torch.amp.autocast('cuda'):
-                logits = model(ids, mask)
-                loss = crit(logits, labs) / accum
-            scaler.scale(loss).backward()
-        else:
-            logits = model(ids, mask)
-            loss = crit(logits, labs) / accum
-            loss.backward()
-
+        logits = model(ids, mask)
+        loss = crit(logits, labs) / accum
+        loss.backward()
         if (i + 1) % accum == 0:
-            if scaler:
-                scaler.unscale_(opt)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            if scaler:
-                scaler.step(opt); scaler.update()
-            else:
-                opt.step()
+            opt.step()
             opt.zero_grad()
-
         total_loss += loss.item() * accum
         preds.extend(torch.argmax(logits, dim=1).cpu().numpy())
         labels.extend(labs.cpu().numpy())
@@ -91,7 +76,7 @@ def evaluate(model, loader, crit, device):
 # ─── Main ────────────────────────────────────────────────────────────────
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument('--dataset', choices=['sst', 'cfimdb', 'cfimdb_cs224n'], required=True)
+    p.add_argument('--dataset', choices=['sst', 'cfimdb'], required=True)
     p.add_argument('--frozen', action='store_true')
     p.add_argument('--epochs', type=int, default=10)
     p.add_argument('--batch-size', type=int, default=32)
@@ -100,6 +85,7 @@ def main():
     p.add_argument('--accum', type=int, default=1)
     p.add_argument('--model', type=str, default='baseline', help='Model from model.py registry')
     p.add_argument('--name', type=str, default=None)
+    p.add_argument('--sample', type=int, default=None, help='Use N train samples for fast testing')
     args = p.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -110,10 +96,13 @@ def main():
 
     if args.dataset == 'sst':
         df = load_sst_data(); num_classes = 5; max_len = 128
-    elif args.dataset == 'cfimdb_cs224n':
-        df = load_cfimdb_cs224n_data(); num_classes = 2; max_len = 512
-    else:
+    elif args.dataset == 'cfimdb':
         df = load_cfimdb_data(); num_classes = 2; max_len = 512
+
+    if args.sample and args.sample < len(df[df['split'] == 'train']):
+        train_idx = df[df['split'] == 'train'].sample(args.sample, random_state=42).index
+        other_idx = df[df['split'] != 'train'].index
+        df = df.loc[train_idx.union(other_idx)]
 
     loaders = make_loaders(df, tokenizer, args.batch_size, max_len, args.workers)
 
@@ -128,22 +117,12 @@ def main():
     name = args.name or f'{args.dataset}_{mode}'
 
     crit = nn.CrossEntropyLoss()
-    opt = AdamW(model.parameters(), lr=args.lr)
-    scaler = torch.amp.GradScaler() if (not args.frozen) and device.type == 'cuda' else None
-    if scaler:
-        total = len(loaders['train']) * args.epochs // args.accum
-        warmup = int(0.1 * total)
-        scheduler = get_linear_schedule_with_warmup(opt, warmup, total)
-        print(f'FP16 + scheduler: ON ({total} steps, {warmup} warmup)')
-    else:
-        scheduler = None
+    opt = AdamW(model.parameters(), lr=args.lr, weight_decay=0.0)
 
     best_dev, history = 0, {'train_loss': [], 'train_acc': [], 'dev_loss': [], 'dev_acc': []}
     for epoch in range(args.epochs):
         print(f'\n--- Epoch {epoch+1}/{args.epochs} ---')
-        tl, ta = train_one_epoch(model, loaders['train'], opt, crit, device, scaler, args.accum)
-        if scheduler:
-            scheduler.step()
+        tl, ta = train_one_epoch(model, loaders['train'], opt, crit, device, args.accum)
         dl, da = evaluate(model, loaders['dev'], crit, device)
         print(f'Train Loss: {tl:.4f} | Acc: {ta:.4f}')
         print(f'Dev   Loss: {dl:.4f} | Acc: {da:.4f}')
